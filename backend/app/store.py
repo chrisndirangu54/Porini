@@ -27,7 +27,7 @@ class MemoryStore:
             incident = Incident(event_type=event.event_type, latitude=event.latitude, longitude=event.longitude,
                                 priority=priority(event.severity, event.event_type), confidence=event.confidence,
                                 severity=event.severity, uncertainty_m=event.uncertainty_m,
-                                synthetic=event.synthetic, event_ids=[event.id], modalities=[event.modality.value],
+                                synthetic=event.synthetic, event_ids=[event.id], source_ids=[event.source_id], modalities=[event.modality.value],
                                 created_at=event.timestamp, updated_at=event.timestamp)
             self.incidents[incident.id] = incident
         event.incident_id = incident.id

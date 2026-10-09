@@ -51,6 +51,7 @@ class Incident(BaseModel):
     uncertainty_m: float
     status: Literal["open", "acknowledged", "investigating", "resolved"] = "open"
     event_ids: list[str] = Field(default_factory=list)
+    source_ids: list[str] = Field(default_factory=list)
     modalities: list[str] = Field(default_factory=list)
     synthetic: bool = False
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

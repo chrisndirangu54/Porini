@@ -35,7 +35,9 @@ def correlate(event: Event, incidents: dict[str, Incident]) -> Incident | None:
 
 def combine(event: Event, incident: Incident) -> Incident:
     # Independent sensor corroboration raises confidence modestly, not to certainty.
-    independent = event.source_id not in getattr(incident, "_unused", [])
+    independent = event.source_id not in incident.source_ids
+    if independent:
+        incident.source_ids.append(event.source_id)
     incident.event_ids.append(event.id)
     if event.modality.value not in incident.modalities:
         incident.modalities.append(event.modality.value)
