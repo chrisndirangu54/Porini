@@ -21,7 +21,10 @@ if os.getenv("PORINI_RANGER_KEY"):
 if os.getenv("PORINI_SENSOR_KEY"):
     ROLE_KEYS[os.environ["PORINI_SENSOR_KEY"]] = "sensor"
 
-def auth(x_api_key: str | None = Header(None)):
+def auth(x_api_key: str | None = Header(None), authorization: str | None = Header(None)):
+    if os.getenv('PORINI_AUTH_MODE') == 'oidc':
+        from .oidc import oidc_auth
+        return oidc_auth(authorization)
     if x_api_key not in ROLE_KEYS:
         raise HTTPException(401, "Invalid API key")
     return ROLE_KEYS[x_api_key]
