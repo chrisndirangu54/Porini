@@ -5,6 +5,7 @@ from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from .models import EventIn, StatusUpdate, AssignmentIn, DroneRequestIn, ApprovalIn
 from .store import store
+from .extensions import bind_roles
 
 app = FastAPI(title="Porini Conservation API", version="0.1.0")
 allowed = os.getenv("PORINI_CORS_ORIGINS", "http://localhost:5173").split(",")
@@ -118,3 +119,6 @@ def seed(role=Depends(allowed_role("admin"))):
         raise HTTPException(403, "Demo disabled")
     store.seed_demo()
     return {"events": len(store.events), "synthetic": True}
+
+# Extensible, locally durable conservation science records.
+app.include_router(bind_roles(auth))
