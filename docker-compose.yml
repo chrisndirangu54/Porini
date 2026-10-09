@@ -1,0 +1,8 @@
+services:
+  api:
+    build: ./backend
+    environment:
+      PORINI_API_KEY: ${PORINI_API_KEY:-local-dev-key}
+      PORINI_ENABLE_DEMO: "true"
+    ports:
+      - "8000:8000"
