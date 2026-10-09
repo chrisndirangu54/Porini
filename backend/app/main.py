@@ -4,7 +4,11 @@ from uuid import uuid4
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from .models import EventIn, StatusUpdate, AssignmentIn, DroneRequestIn, ApprovalIn
-from .store import store
+from .durable import DurableStore
+from .field_api import bind_field
+from . import store as store_module
+store = DurableStore()
+store_module.store = store
 from .extensions import bind_roles
 
 app = FastAPI(title="Porini Conservation API", version="0.1.0")
@@ -122,3 +126,4 @@ def seed(role=Depends(allowed_role("admin"))):
 
 # Extensible, locally durable conservation science records.
 app.include_router(bind_roles(auth))
+app.include_router(bind_field(auth))

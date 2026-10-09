@@ -53,3 +53,11 @@ Backend state is in memory and resets on restart. Dashboard map uses OpenStreetM
 
 ## Responsible use
 Protect sensitive species locations, minimize collection of identifiable human imagery, restrict access by organization/role, respect aviation regulations and conservation permits, and require ranger/operator authorization for each flight. **No autonomous pursuit, interception, targeting or punitive action.**
+
+
+## October 2026 integration update
+- Core incident/mission data now uses a **single-process SQLite persistent store**; Docker persists it in the `porini_data` volume.
+- Live TLS MQTT-to-HTTP intake worker added under `workers/`, requiring your broker and credentials.
+- Flutter ranger app prototype added under `ranger-app/` with live incident list and acknowledgement.
+- Acoustic and satellite metadata validation endpoints available under `/field/`.
+- Real sensor drivers, trained classifiers, geospatial computation, credentialed third-party APIs, drone flight execution and production security are **not complete**. See `docs/DEPLOYMENT.md`.
