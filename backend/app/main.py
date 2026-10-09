@@ -38,7 +38,7 @@ def allowed_role(*roles):
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "prototype": True, "persistence": "memory"}
+    return {"status": "ok", "prototype": True, "persistence": "sqlite", "geospatial_adapter": bool(os.getenv("POSTGIS_DSN"))}
 
 @app.get("/overview")
 def overview(role=Depends(allowed_role("admin", "ranger"))):

@@ -17,3 +17,6 @@ PostGIS schema and insert adapter support durable geospatial observations. The o
 
 ## Offline field clients
 Flutter SQLCipher storage and outbox sync service are implemented, but full offline basemaps, SOS dispatch, cross-device conflict resolution and key lifecycle integration remain unfinished. Never depend on this prototype alone in remote emergencies.
+
+## Offline Flutter wiring
+The main ranger screen now loads encrypted cache when disconnected and queues acknowledgements before synchronization. Supply a strong passphrase from secure device storage in production; the sample currently asks the user for it. Credentials and lifecycle management remain a deployment responsibility.
