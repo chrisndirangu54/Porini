@@ -35,8 +35,9 @@ def bind_research_reviews(allowed_role):
     def decide(review_id:str,req:Decision,role=Depends(allowed_role("admin","ranger"))):
         queue,tenant=service()
         # Principal binding is required for any non-demo deployment; prevent spoofed identity.
-        if os.getenv("PORINI_AUTH_MODE") != "oidc":
-            raise HTTPException(403,"Decisions require authenticated OIDC identity")
+        # The authentication dependency exposes only a role, not a verified reviewer identity.
+        # Refuse decisions rather than trusting the client-supplied reviewer_id.
+        raise HTTPException(503,"Decision API disabled until trusted identity binding is implemented")
         if req.decision not in ("confirmed","rejected"):
             raise HTTPException(422,"Invalid decision")
         try:return queue.decide(tenant,review_id,req.reviewer_id,req.decision,req.note)
