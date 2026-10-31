@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
+from .portable_extinguisher import PortableReview, CATALOG, evaluate_portable
 
 FIRE_EVENT_TYPES = frozenset({
     "wildfire", "possible_wildfire", "smoke_detected", "fire_detected",
@@ -47,8 +48,27 @@ def assess(incident: object) -> FireAssessment:
         options=options, cautions=cautions,
     )
 
+
+class PortableReviewRequest(BaseModel):
+    agent: Literal["water_mist", "abc_dry_chemical", "clean_agent", "co2"]
+    incident_approved: bool = False
+    fire_verified: bool = False
+    evidence_fresh: bool = False
+    wildlife_and_people_clear: bool = False
+    environmental_approval: bool = False
+    wind_reviewed: bool = False
+    certified_product: bool = False
+
 def bind_fireshield(store, allowed_role):
     router = APIRouter(prefix="/fireshield", tags=["FireShield"])
+    @router.get("/extinguishers/catalog")
+    def extinguisher_catalog(role=Depends(allowed_role("admin", "ranger"))):
+        return {"agents": CATALOG, "physical_release_enabled": False}
+
+    @router.post("/extinguishers/evaluate")
+    def extinguisher_evaluate(req: PortableReviewRequest, role=Depends(allowed_role("admin", "ranger"))):
+        return evaluate_portable(PortableReview(**req.model_dump()))
+
     @router.get("/incidents", response_model=list[FireAssessment])
     def fire_incidents(role=Depends(allowed_role("admin", "ranger"))):
         return [assess(item) for item in store.incidents.values()
