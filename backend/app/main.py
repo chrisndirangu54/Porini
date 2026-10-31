@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .models import EventIn, StatusUpdate, AssignmentIn, DroneRequestIn, ApprovalIn
 from .durable import DurableStore
 from .field_api import bind_field
+from .fireshield import bind_fireshield
 from . import store as store_module
 store = DurableStore()
 store_module.store = store
@@ -130,3 +131,4 @@ def seed(role=Depends(allowed_role("admin"))):
 # Extensible, locally durable conservation science records.
 app.include_router(bind_roles(auth))
 app.include_router(bind_field(auth))
+app.include_router(bind_fireshield(store, allowed_role))
