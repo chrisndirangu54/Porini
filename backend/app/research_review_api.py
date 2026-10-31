@@ -1,6 +1,7 @@
 """Authenticated research review routes, fail-closed by default."""
 import os
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Header
+from .oidc import verified_claims
 from pydantic import BaseModel, Field
 from .review_queue import ReviewQueue
 
@@ -32,14 +33,22 @@ def bind_research_reviews(allowed_role):
         try:return queue.list(tenant,status)
         except ValueError as e:raise HTTPException(422,str(e))
     @router.post("/{review_id}/decision")
-    def decide(review_id:str,req:Decision,role=Depends(allowed_role("admin","ranger"))):
+    def decide(review_id:str,req:Decision,
+               role=Depends(allowed_role("admin","ranger")),
+               authorization:str|None=Header(default=None)):
+        if os.getenv("PORINI_AUTH_MODE") != "oidc":
+            raise HTTPException(403,"Decisions require OIDC authentication")
+        claims=verified_claims(authorization)
+        roles=set(claims.get("roles",[]))
+        if not roles.intersection({"porini:admin","porini:ranger"}):
+            raise HTTPException(403,"Reviewer role required")
+        principal=claims.get("sub")
+        if not principal or not isinstance(principal,str):
+            raise HTTPException(403,"Verified reviewer subject missing")
         queue,tenant=service()
-        # Principal binding is required for any non-demo deployment; prevent spoofed identity.
-        # The authentication dependency exposes only a role, not a verified reviewer identity.
-        # Refuse decisions rather than trusting the client-supplied reviewer_id.
-        raise HTTPException(503,"Decision API disabled until trusted identity binding is implemented")
         if req.decision not in ("confirmed","rejected"):
             raise HTTPException(422,"Invalid decision")
-        try:return queue.decide(tenant,review_id,req.reviewer_id,req.decision,req.note)
+        # Reviewer attribution comes ONLY from the validated token.
+        try:return queue.decide(tenant,review_id,principal,req.decision,req.note)
         except ValueError as e:raise HTTPException(409,str(e))
     return router
