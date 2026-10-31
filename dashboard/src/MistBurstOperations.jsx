@@ -6,6 +6,9 @@ const uses=[{value:'hotspot',label:'Active hotspot'},{value:'temporary_vegetatio
 
 export default function MistBurstOperations({fireAssessments=[]}){
   const [catalog,setCatalog]=useState([]);
+  const [propellants,setPropellants]=useState([]);
+  const [propellant,setPropellant]=useState('mechanical_pump');
+  const [vesselCertified,setVesselCertified]=useState(false);
   const [selected,setSelected]=useState('MistBurst-W');
   const [application,setApplication]=useState('hotspot');
   const [checks,setChecks]=useState({product_approved:false,nozzle_compatible:false,environmental_clearance:false,operator_reviewed:false});
@@ -16,14 +19,19 @@ export default function MistBurstOperations({fireAssessments=[]}){
   useEffect(()=>{let alive=true;fetch(API+'/fireshield/mistburst/formulations',{headers:{'X-API-Key':KEY}})
    .then(r=>{if(!r.ok)throw Error('Unable to load MistBurst registry');return r.json()})
    .then(d=>{if(alive)setCatalog(d.formulations||[])})
-   .catch(e=>{if(alive)setError(e.message)});return()=>{alive=false}},[]);
+   .catch(e=>{if(alive)setError(e.message)});
+   fetch(API+'/fireshield/mistburst/propellants',{headers:{'X-API-Key':KEY}})
+   .then(r=>{if(!r.ok)throw Error('Cannot load propellants');return r.json()})
+   .then(d=>{if(alive)setPropellants(d.propellants||[])})
+   .catch(e=>{if(alive)setError(e.message)});
+   return()=>{alive=false}},[]);
   const item=catalog.find(x=>x.id===selected);
   async function review(){
     setLoading(true);setError('');setAssessment(null);
     try{
       const r=await fetch(API+'/fireshield/mistburst/compatibility-review',{method:'POST',
         headers:{'X-API-Key':KEY,'Content-Type':'application/json'},
-        body:JSON.stringify({formulation:selected,application,...checks})});
+        body:JSON.stringify({formulation:selected,application,propellant,vessel_certified:vesselCertified,...checks})});
       if(!r.ok)throw Error('Compatibility review failed');
       setAssessment(await r.json());
     }catch(e){setError(e.message)}finally{setLoading(false)}
@@ -48,6 +56,10 @@ export default function MistBurstOperations({fireAssessments=[]}){
       <label>Formulation <select value={selected} onChange={e=>{setSelected(e.target.value);setAssessment(null)}}>{catalog.map(f=><option key={f.id}>{f.id}</option>)}</select></label>
     </div>
     {item&&<p className="muted">Nozzle category: {item.nozzle}. Viscosity: {item.viscosity}. {item.notes.join(' ')}</p>}
+    <div className="sectionheading"><h2>Atomization and propellant alternatives</h2></div>
+    <label>Propellant / atomizer <select value={propellant} onChange={e=>{setPropellant(e.target.value);setAssessment(null)}}>{propellants.map(p=><option value={p.id} key={p.id}>{p.name} — {p.status}</option>)}</select></label>
+    {propellants.filter(p=>p.id===propellant).map(p=><div className="notice" key={p.id}><strong>{p.type} · {p.status}</strong><p>{p.cautions.join(' · ')}</p>{p.status==='simulation_only'&&<p>No chemical generation or hardware triggering is available.</p>}</div>)}
+    {['compressed_air','compressed_nitrogen'].includes(propellant)&&<label><input type="checkbox" checked={vesselCertified} onChange={e=>{setVesselCertified(e.target.checked);setAssessment(null)}}/> Certified vessel and regulator documentation self-declared</label>}
     <p>These are operator-entered declarations, not independently verified certificates:</p>
     <div className="actions" style={{flexWrap:'wrap',gap:12}}>{Object.keys(checks).map(key=><label key={key}><input type="checkbox" checked={checks[key]} onChange={e=>{setChecks(v=>({...v,[key]:e.target.checked}));setAssessment(null)}}/> {key.replaceAll('_',' ')}</label>)}</div>
     <button className="btn primary" type="button" disabled={loading||!catalog.length} onClick={review}>{loading?'Reviewing…':'Review compatibility'}</button>
