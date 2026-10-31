@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .models import EventIn, StatusUpdate, AssignmentIn, DroneRequestIn, ApprovalIn
 from .durable import DurableStore
 from .field_api import bind_field
+from .gas_suppressants import GAS_AGENTS, GasReview, review_gas
 from .mistburst import bind_mistburst
 from .mistburst_benchmarks import bind_benchmarks
 from .fireshield import bind_fireshield
@@ -140,3 +141,11 @@ app.include_router(bind_mistburst(allowed_role))
 app.include_router(bind_benchmarks(allowed_role))
 app.include_router(bind_towers(store, allowed_role))
 app.include_router(bind_evidence(store, allowed_role))
+
+@app.get("/fireshield/gas-only")
+def gas_only_catalog(role=Depends(allowed_role("admin","ranger"))):
+    return {"agents":[{"id":k,**v} for k,v in GAS_AGENTS.items()],"physical_actuation_enabled":False}
+
+@app.post("/fireshield/gas-only/review")
+def gas_only_review(req:GasReview,role=Depends(allowed_role("admin","ranger"))):
+    return review_gas(req)
