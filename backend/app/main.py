@@ -136,3 +136,38 @@ app.include_router(bind_field(auth))
 app.include_router(bind_fireshield(store, allowed_role))
 app.include_router(bind_towers(store, allowed_role))
 app.include_router(bind_evidence(store, allowed_role))
+
+
+# Research-only multimodal readiness routes. No live inference or autonomous action.
+from .multimodal import InferenceRequest, AudioRequest, inference_readiness, run_image, run_audio
+from .stac_pipeline import scene_metadata
+from .evidence_quality import MODEL_REGISTRY
+from pydantic import BaseModel as _BaseModel, Field as _Field
+
+class _STACReview(_BaseModel):
+    feature: dict
+
+@app.get("/research/models")
+def research_models(role=Depends(allowed_role("admin","ranger"))):
+    return {"candidates":MODEL_REGISTRY,
+            "readiness":[inference_readiness(m) for m in ("megadetector_v6","speciesnet","birdnet")],
+            "live_inference_enabled":False}
+
+@app.post("/research/images/review")
+def research_image_review(req:InferenceRequest,role=Depends(allowed_role("admin","ranger"))):
+    root=os.getenv("PORINI_EVIDENCE_ROOT")
+    if not root:raise HTTPException(503,"PORINI_EVIDENCE_ROOT not configured")
+    try:return run_image(req,root)
+    except (ValueError,FileNotFoundError) as e:raise HTTPException(422,str(e))
+
+@app.post("/research/audio/review")
+def research_audio_review(req:AudioRequest,role=Depends(allowed_role("admin","ranger"))):
+    root=os.getenv("PORINI_EVIDENCE_ROOT")
+    if not root:raise HTTPException(503,"PORINI_EVIDENCE_ROOT not configured")
+    try:return run_audio(req,root)
+    except (ValueError,FileNotFoundError) as e:raise HTTPException(422,str(e))
+
+@app.post("/research/stac/metadata")
+def research_stac_review(req:_STACReview,role=Depends(allowed_role("admin","ranger"))):
+    try:return scene_metadata(req.feature)
+    except (ValueError,TypeError,KeyError) as e:raise HTTPException(422,str(e))
