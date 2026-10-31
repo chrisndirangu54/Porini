@@ -22,3 +22,21 @@ def test_mismatched_application_requires_review():
     result = review(CompatibilityReview(formulation="MistBurst-W", application="fireline",
         product_approved=True, nozzle_compatible=True, environmental_clearance=True, operator_reviewed=True))
     assert not result["advisory_ready"]
+
+def test_generated_gas_cannot_pass_review_even_when_checks_declared():
+    result = review(CompatibilityReview(
+        formulation="MistBurst-W", application="hotspot",
+        propellant="chemical_gas_generator", product_approved=True,
+        nozzle_compatible=True, environmental_clearance=True,
+        operator_reviewed=True, vessel_certified=True))
+    assert not result["advisory_ready"]
+    assert not result["physical_actuation_enabled"]
+
+def test_stored_gas_requires_vessel_certification():
+    result = review(CompatibilityReview(
+        formulation="MistBurst-W", application="hotspot",
+        propellant="compressed_air", product_approved=True,
+        nozzle_compatible=True, environmental_clearance=True,
+        operator_reviewed=True))
+    assert not result["advisory_ready"]
+    assert any("vessel" in issue.lower() for issue in result["issues"])
