@@ -8,6 +8,7 @@ from .durable import DurableStore
 from .field_api import bind_field
 from .fireshield import bind_fireshield
 from .towers import bind_towers
+from .evidence_review import bind_evidence
 from . import store as store_module
 store = DurableStore()
 store_module.store = store
@@ -134,3 +135,4 @@ app.include_router(bind_roles(auth))
 app.include_router(bind_field(auth))
 app.include_router(bind_fireshield(store, allowed_role))
 app.include_router(bind_towers(store, allowed_role))
+app.include_router(bind_evidence(store, allowed_role))
