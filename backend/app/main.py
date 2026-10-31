@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .models import EventIn, StatusUpdate, AssignmentIn, DroneRequestIn, ApprovalIn
 from .durable import DurableStore
 from .field_api import bind_field
+from .mistburst import bind_mistburst
 from .fireshield import bind_fireshield
 from .towers import bind_towers
 from .evidence_review import bind_evidence
@@ -134,5 +135,6 @@ def seed(role=Depends(allowed_role("admin"))):
 app.include_router(bind_roles(auth))
 app.include_router(bind_field(auth))
 app.include_router(bind_fireshield(store, allowed_role))
+app.include_router(bind_mistburst(allowed_role))
 app.include_router(bind_towers(store, allowed_role))
 app.include_router(bind_evidence(store, allowed_role))
