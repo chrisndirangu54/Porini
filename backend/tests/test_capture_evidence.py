@@ -9,7 +9,7 @@ def test_rtsp_scheme_guard():
 def test_wav_adapter(tmp_path):
     path=tmp_path/"sample.wav"
     with wave.open(str(path),"wb") as w:
-        w.setnchannels(1);w.setsampwidth(2);w.setframerate(16000);w.writeframes(b"\\x00\\x00"*100)
+        w.setnchannels(1);w.setsampwidth(2);w.setframerate(16000);w.writeframes(bytes(200))
     assert read_wav(str(path))["sample_count"]==100
 
 def test_aes_gcm_roundtrip(tmp_path):
