@@ -171,3 +171,6 @@ def research_audio_review(req:AudioRequest,role=Depends(allowed_role("admin","ra
 def research_stac_review(req:_STACReview,role=Depends(allowed_role("admin","ranger"))):
     try:return scene_metadata(req.feature)
     except (ValueError,TypeError,KeyError) as e:raise HTTPException(422,str(e))
+
+from .research_review_api import bind_research_reviews
+app.include_router(bind_research_reviews(allowed_role))
