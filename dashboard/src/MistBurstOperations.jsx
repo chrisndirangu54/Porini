@@ -1,4 +1,5 @@
 import React,{useEffect,useState} from 'react';
+import MistBurstBenchmarks from './MistBurstBenchmarks.jsx';
 
 const API=import.meta.env.VITE_API_URL||'http://localhost:8000';
 const KEY=import.meta.env.VITE_API_KEY||'local-dev-key';
@@ -72,5 +73,6 @@ export default function MistBurstOperations({fireAssessments=[]}){
     <p className="muted">LiDAR/infrared observations: {fireAssessments.length} available FireShield assessment records. Weather inputs above are manual illustrative categories, not live sensor data.</p>
     <ul>{constraints.map((c,i)=><li key={i}>{c}</li>)}</ul>
     <p className="muted">Mode transitions require manufacturer-approved line flushing, inspection and verified compatibility. Gel and retardant are kept in separate cartridges; no arbitrary mixing is authorized.</p>
+    <MistBurstBenchmarks/>
   </section>
 }
