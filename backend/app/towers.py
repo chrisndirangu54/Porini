@@ -4,6 +4,7 @@ In-memory registry, not suitable for emergency reliance or production deployment
 from datetime import datetime, timezone
 from enum import Enum
 from uuid import uuid4
+import os, json, sqlite3, threading
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
@@ -53,16 +54,31 @@ KNOWN = FIRE | ACOUSTIC | VISUAL
 def bind_towers(store, allowed_role):
     from .models import EventIn
     router = APIRouter(prefix="/towers", tags=["Sentinel Towers"])
-    towers = {}
-    sensors = {}
-    observations = []
-    seen = set()
+    # SQLite-backed registry for single-process prototype use; PostgreSQL remains the production target.
+    database = os.getenv("PORINI_CORE_DB_PATH", "/tmp/porini_core.sqlite3")
+    lock = threading.RLock()
+    with sqlite3.connect(database) as connection:
+        connection.execute("CREATE TABLE IF NOT EXISTS sentinel_state (key TEXT PRIMARY KEY, value TEXT NOT NULL)")
+        rows = dict(connection.execute("SELECT key, value FROM sentinel_state"))
+    towers = json.loads(rows.get("towers", "{}"))
+    sensors = json.loads(rows.get("sensors", "{}"))
+    observations = json.loads(rows.get("observations", "[]"))
+    seen = {(o["tower_id"], o["sensor_id"], o.get("external_id")) for o in observations if o.get("external_id")}
+
+    def persist():
+        with lock, sqlite3.connect(database) as connection:
+            connection.executemany(
+                "INSERT INTO sentinel_state(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+                [(key, json.dumps(value)) for key, value in
+                 (("towers", towers), ("sensors", sensors), ("observations", observations))])
+
 
     @router.post("", status_code=201)
     def register_tower(payload: TowerIn, role=Depends(allowed_role("admin"))):
         tower_id = str(uuid4())
         tower = {"id": tower_id, **payload.model_dump(), "health": None}
         towers[tower_id] = tower
+        persist()
         store.log("tower.registered", role, {"tower_id": tower_id})
         return tower
 
@@ -77,6 +93,7 @@ def bind_towers(store, allowed_role):
         sensor_id = str(uuid4())
         item = {"id": sensor_id, "tower_id": tower_id, **payload.model_dump()}
         sensors[sensor_id] = item
+        persist()
         store.log("tower.sensor.registered", role, {"tower_id": tower_id, "sensor_id": sensor_id})
         return item
 
@@ -92,6 +109,7 @@ def bind_towers(store, allowed_role):
             raise HTTPException(404, "Tower not found")
         status = {**payload.model_dump(), "observed_at": datetime.now(timezone.utc).isoformat()}
         towers[tower_id]["health"] = status
+        persist()
         store.log("tower.health", role, {"tower_id": tower_id, "online": payload.online})
         return status
 
@@ -127,8 +145,9 @@ def bind_towers(store, allowed_role):
         item = {"id": str(uuid4()), "tower_id": tower_id, "sensor_id": payload.sensor_id,
                 "event_id": event.id, "incident_id": event.incident_id,
                 "event_type": payload.event_type, "confidence": payload.confidence,
-                "synthetic": payload.synthetic, "review_required": True}
+                "synthetic": payload.synthetic, "review_required": True, "external_id": payload.external_id}
         observations.append(item)
+        persist()
         return item
 
     @router.get("/{tower_id}/observations")
