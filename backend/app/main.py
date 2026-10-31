@@ -7,6 +7,7 @@ from .models import EventIn, StatusUpdate, AssignmentIn, DroneRequestIn, Approva
 from .durable import DurableStore
 from .field_api import bind_field
 from .mistburst import bind_mistburst
+from .mistburst_benchmarks import bind_benchmarks
 from .fireshield import bind_fireshield
 from .towers import bind_towers
 from .evidence_review import bind_evidence
@@ -136,5 +137,6 @@ app.include_router(bind_roles(auth))
 app.include_router(bind_field(auth))
 app.include_router(bind_fireshield(store, allowed_role))
 app.include_router(bind_mistburst(allowed_role))
+app.include_router(bind_benchmarks(allowed_role))
 app.include_router(bind_towers(store, allowed_role))
 app.include_router(bind_evidence(store, allowed_role))
