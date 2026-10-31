@@ -1,7 +1,7 @@
 """Opt-in OIDC JWT verification with cached JWKS via PyJWT PyJWKClient."""
 import os
 from fastapi import Header,HTTPException
-def oidc_auth(authorization:str|None=Header(None)):
+def verified_claims(authorization:str|None):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401,"Bearer token required")
     issuer=os.getenv("PORINI_OIDC_ISSUER")
@@ -19,7 +19,14 @@ def oidc_auth(authorization:str|None=Header(None)):
         tenant=os.getenv("PORINI_TENANT_ID","demo-conservancy")
         if claims.get("tenant_id")!=tenant:raise HTTPException(403,"Wrong conservancy")
         roles=set(claims.get("roles",[]))
-        return "admin" if "porini:admin" in roles else "ranger" if "porini:ranger" in roles else "sensor" if "porini:sensor" in roles else _deny()
+        if not roles.intersection({"porini:admin","porini:ranger","porini:sensor"}): _deny()
+        return claims
     except HTTPException:raise
     except Exception:raise HTTPException(401,"Invalid bearer token")
 def _deny():raise HTTPException(403,"Role not assigned")
+
+
+def oidc_auth(authorization:str|None=Header(None)):
+    claims=verified_claims(authorization)
+    roles=set(claims.get("roles",[]))
+    return "admin" if "porini:admin" in roles else "ranger" if "porini:ranger" in roles else "sensor"
