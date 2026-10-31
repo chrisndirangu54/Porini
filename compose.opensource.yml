@@ -1,0 +1,62 @@
+# Optional research services. Run: docker compose -f compose.opensource.yml up -d
+# Development only: set passwords in .env, add TLS/ingress and backup policies before deployment.
+services:
+  postgis:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: porini
+      POSTGRES_USER: porini
+      POSTGRES_PASSWORD: ${PORINI_POSTGRES_PASSWORD:?Set PORINI_POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backend/migrations/001_geospatial.sql:/docker-entrypoint-initdb.d/001_geospatial.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL","pg_isready -U porini -d porini"]
+      interval: 10s
+      retries: 8
+    networks: [internal]
+    restart: unless-stopped
+  nats:
+    image: nats:2.10-alpine
+    command: ["-js","-sd","/data"]
+    volumes: [natsdata:/data]
+    networks: [internal]
+    restart: unless-stopped
+  mosquitto:
+    image: eclipse-mosquitto:2
+    volumes:
+      - ./infra/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mqttdata:/mosquitto/data
+    networks: [internal]
+    restart: unless-stopped
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    volumes:
+      - ./infra/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    networks: [internal]
+  grafana:
+    image: grafana/grafana-oss:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${PORINI_GRAFANA_PASSWORD:?Set PORINI_GRAFANA_PASSWORD in .env}
+    networks: [internal]
+    depends_on: [prometheus]
+    volumes: [grafanadata:/var/lib/grafana]
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    command: ["start-dev"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${PORINI_KEYCLOAK_PASSWORD:?Set PORINI_KEYCLOAK_PASSWORD in .env}
+    ports: ["127.0.0.1:8081:8080"]
+    networks: [internal]
+    volumes: [keycloakdata:/opt/keycloak/data]
+    restart: unless-stopped
+networks:
+  internal:
+    internal: true
+volumes:
+  pgdata:
+  natsdata:
+  mqttdata:
+  grafanadata:
+  keycloakdata:
