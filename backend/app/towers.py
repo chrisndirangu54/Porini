@@ -4,8 +4,8 @@ In-memory registry, not suitable for emergency reliance or production deployment
 from datetime import datetime, timezone
 from enum import Enum
 from uuid import uuid4
-import os, json, sqlite3, threading
-from fastapi import APIRouter, Depends, HTTPException
+import os, json, sqlite3, threading, hmac, hashlib, time
+from fastapi import APIRouter, Depends, HTTPException, Request, Header
 from pydantic import BaseModel, Field
 
 class SensorKind(str, Enum):
@@ -149,6 +149,46 @@ def bind_towers(store, allowed_role):
         observations.append(item)
         persist()
         return item
+
+    @router.post("/{tower_id}/signed-observations", status_code=201)
+    async def signed_observation(
+        tower_id: str, request: Request,
+        x_sensor_id: str = Header(...), x_device_timestamp: str = Header(...),
+        x_device_signature: str = Header(...),
+    ):
+        """Accept edge classifications only after authenticating the enrolled sensor.
+        HMAC SHA-256 over timestamp + newline + raw JSON body; requires HTTPS.
+        No inference, video streaming, or hardware actuation.
+        """
+        sensor = sensors.get(x_sensor_id)
+        if tower_id not in towers or sensor is None or sensor["tower_id"] != tower_id:
+            raise HTTPException(401, "Unknown device")
+        try:
+            timestamp = int(x_device_timestamp)
+        except ValueError:
+            raise HTTPException(401, "Invalid timestamp")
+        if abs(time.time() - timestamp) > 120:
+            raise HTTPException(401, "Expired timestamp")
+        try:
+            credentials = json.loads(os.getenv("PORINI_SENSOR_HMAC_KEYS", "{}"))
+        except ValueError:
+            raise HTTPException(503, "Device configuration invalid")
+        secret = credentials.get(x_sensor_id)
+        if not isinstance(secret, str) or len(secret) < 32:
+            raise HTTPException(401, "Device credentials missing")
+        raw = await request.body()
+        if len(raw) > 16384:
+            raise HTTPException(413, "Observation too large")
+        digest = hmac.new(secret.encode(), x_device_timestamp.encode() + b"\\n" + raw, hashlib.sha256).hexdigest()
+        if not hmac.compare_digest(digest, x_device_signature):
+            raise HTTPException(401, "Invalid signature")
+        try:
+            payload = ObservationIn.model_validate_json(raw)
+        except Exception:
+            raise HTTPException(422, "Invalid observation")
+        if payload.sensor_id != x_sensor_id or not payload.external_id:
+            raise HTTPException(422, "Sensor ID and unique external ID required")
+        return ingest_observation(tower_id, payload, role="sensor")
 
     @router.get("/{tower_id}/observations")
     def list_observations(tower_id: str, role=Depends(allowed_role("admin", "ranger"))):
